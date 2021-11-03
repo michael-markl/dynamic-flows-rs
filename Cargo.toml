@@ -1,0 +1,11 @@
+[package]
+name = "rust-dynamic-flows"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+petgraph = "0.6.0"
+num-traits = "0.2.14"
+ordered-float = "2.8.0"
