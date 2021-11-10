@@ -21,7 +21,7 @@ fn main() {
         points: vec![Point(num(1.), num(1.))],
     };
 
-    let g = &f + &f;
+    let g = &f - &f;
 
     println!("Evaluation: {}", g.eval(num(12.)));
     println!("g: {:#?}", g);
