@@ -5,7 +5,11 @@ use std::cmp::Ord;
 use std::fmt::Debug;
 use itertools::{EitherOrBoth, Itertools};
 
-pub trait CustomNum: Num + Copy + Ord + Debug {}
+pub trait CustomNum: Num + Copy + Ord + Debug {
+    const EXACT_ARITHMETIC: bool;
+
+    const TOL: Self;
+}
 
 #[derive(Debug)]
 pub struct Point<T: CustomNum>(pub T, pub T);
@@ -116,23 +120,37 @@ fn sum_op<T: CustomNum>(lhs: &PiecewiseLinear<T>, rhs: &PiecewiseLinear<T>, op: 
 
     let mut cur_i = self_rng.0;
     let mut cur_j = rhs_rng.0;
+
+    let time_in_tolerance = |t: T, list: &Vec<Point<T>>| -> bool {
+        match list.last() {
+            None => true,
+            Some(p) => p.0 < (t - T::TOL)
+        }
+    };
+
     for p in new_iter {
         match p {
             EitherOrBoth::Left(p) => {
                 cur_i += 1;
                 let val = op(p.1, rhs.eval_with_rank(Err(cur_j), p.0));
-                new_points.push(Point(p.0, val));
+                if T::EXACT_ARITHMETIC || time_in_tolerance(p.0, &new_points) {
+                    new_points.push(Point(p.0, val));
+                }
             }
             EitherOrBoth::Right(q) => {
                 cur_j += 1;
                 let val = op(lhs.eval_with_rank(Err(cur_i), q.0), q.1);
-                new_points.push(Point(q.0, val));
+                if T::EXACT_ARITHMETIC || time_in_tolerance(q.0, &new_points) {
+                    new_points.push(Point(q.0, val));
+                }
             }
             EitherOrBoth::Both(p, q) => {
                 cur_i += 1;
                 cur_j += 1;
                 let val = op(p.1, q.1);
-                new_points.push(Point(q.0, val));
+                if T::EXACT_ARITHMETIC || time_in_tolerance(q.0, &new_points) {
+                    new_points.push(Point(q.0, val));
+                }
             }
         };
     }
