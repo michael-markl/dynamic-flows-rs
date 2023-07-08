@@ -74,6 +74,108 @@ impl<T: Num> PiecewiseLinear<T> {
         }
     }
 
+    /// Returns the gradient between `points[i-1].0` (or `domain.0` if `i == 0`) and `times[i]`
+    /// (or `domain.1` if `i == len(times)`)
+    pub fn gradient(&self, i: usize) -> T {
+        todo!("The following code has not been tested!");
+
+        debug_assert!(i <= self.points.len(), "i is not in the expected range.");
+        if i == 0 {
+            self.first_slope
+        } else if i == self.points.len() {
+            self.last_slope
+        } else {
+            let p = &self.points[i - 1];
+            let q = &self.points[i];
+            (q.1 - p.1) / (q.0 - p.0)
+        }
+    }
+
+    /// Returns the composition h(x):= self(rhs(x))
+    pub fn compose(&self, rhs: &PiecewiseLinear<T>) -> PiecewiseLinear<T> {
+        todo!("The following code has not been tested!");
+        let g = self;
+        let f = rhs;
+
+        debug_assert!(
+            f.is_monotone(),
+            "Composition g ⚬ f is only implemented for f monotone increasing."
+        );
+        debug_assert!(
+            {
+                let f_img = f.image();
+                g.domain.0 <= f_img.0 + T::TOL && g.domain.1 >= f_img.1 - T::TOL
+            },
+            "The domains do not match for composition."
+        );
+
+        let mut points: Vec<Point<T>> = Vec::new(); // todo: add some heuristic capacity
+        let f_img = f.image();
+        let g_rnk = match g.get_rnk(f_img.0) {
+            Ok(i) => i,
+            Err(i) => i,
+        };
+        // g.points[g_rnk - 1].0 < f_img.0 <= g.points[g_rnk].0
+        let first_slope = g.gradient(g_rnk) * f.first_slope; // By chain rule
+
+        let mut i_g = max(1, g_rnk); // Start of interval
+
+        debug_assert!(i_g == g.points.len() - 1 || f.domain.0 <= g.points[i_g + 1].0);
+
+        for i_f in 0..f.points.len() {
+            // Interval (f.points[i_f - 1], f.points[i_f])
+            while i_g < g.points.len() && g.points[i_g - 1].0 <= f.points[i_f].1 {
+                let next_time = max(f_img.0, g.points[i_g - 1].0);
+                if f.gradient(i_f) != T::ZERO {
+                    let inv = f.inverse(next_time, i_f);
+                    if points.last().map_or(true, |x| inv > x.0 + T::TOL) {
+                        let p = Point(inv, g.eval(next_time)); // todo: use rnk for g
+                        points.push(p);
+                    }
+                }
+                i_g += 1;
+            }
+            if points
+                .last()
+                .map_or(true, |x| f.points[i_f].0 > x.0 + T::TOL)
+            {
+                let p = Point(f.points[i_f].0, g.eval(f.points[i_f].1)); // todo: use rnk for g
+                points.push(p);
+            }
+        }
+
+        while i_g <= g.points.len() && g.points[i_g - 1].0 <= f_img.1 {
+            let next_time = max(f_img.0, g.points[i_g - 1].0);
+            if f.gradient(f.points.len()) != T::ZERO {
+                let inv = f.inverse(next_time, f.points.len()); // todo: check usages of inverse
+                if points.last().map_or(true, |x| inv > x.0 + T::TOL) {
+                    let p = Point(inv, g.eval(next_time)); // todo: use rnk for g
+                    points.push(p);
+                }
+            }
+            i_g += 1;
+        }
+
+        let last_slope = g.gradient(i_g) * f.last_slope;
+        return PiecewiseLinear {
+            domain: f.domain,
+            first_slope,
+            last_slope,
+            points,
+        };
+    }
+
+    fn is_monotone(&self) -> bool {
+        todo!()
+    }
+    fn image(&self) -> (T, T) {
+        todo!()
+    }
+    fn inverse(&self, p0: T, p1: usize) -> T {
+        todo!()
+    }
+}
+
 fn sum_op<T: Num, F: Fn(T, T) -> T>(
     lhs: &PiecewiseLinear<T>,
     rhs: &PiecewiseLinear<T>,
