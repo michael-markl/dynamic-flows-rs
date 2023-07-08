@@ -1,29 +1,52 @@
-use std::cmp::{max, min};
-use std::ops::{Add, Sub};
-use num_traits::Num;
-use std::cmp::Ord;
-use std::fmt::Debug;
 use itertools::{EitherOrBoth, Itertools};
+use std::cmp::{max, min};
+use std::fmt::{Debug, Display, Formatter};
+use std::ops::{Add, Sub};
 
-pub trait CustomNum: Num + Copy + Ord + Debug {
-    const EXACT_ARITHMETIC: bool;
+use crate::num::Num;
 
-    const TOL: Self;
+#[derive(Debug)]
+pub struct Point<T: Num>(pub T, pub T);
+
+impl<T: Num> Display for Point<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({:}, {:})", self.0, self.1)
+    }
 }
 
 #[derive(Debug)]
-pub struct Point<T: CustomNum>(pub T, pub T);
-
-#[derive(Debug)]
-pub struct PiecewiseLinear<T: CustomNum> {
+pub struct PiecewiseLinear<T: Num> {
     pub domain: (T, T),
-    pub first_slope: T,
-    pub last_slope: T,
+    first_slope: T,
+    last_slope: T,
     pub points: Vec<Point<T>>, // TODO: Maybe use a NonEmptyVec here
 }
 
+impl<T: Num> PiecewiseLinear<T> {
+    pub fn new(domain: (T, T), first_slope: T, last_slope: T, points: Vec<Point<T>>) -> Self {
+        debug_assert!(domain.0 <= domain.1, "The domain is not well defined.");
+        debug_assert!(points.len() >= 1, "There must be at least one point.");
+        debug_assert!(
+            points[0].0 >= domain.0,
+            "The first point is not in the domain."
+        );
+        debug_assert!(
+            points[points.len() - 1].0 <= domain.1,
+            "The last point is not in the domain."
+        );
+        debug_assert!(
+            points.windows(2).all(|w| w[0].0 < w[1].0),
+            "The points are not sorted by x-coordinate."
+        );
 
-impl<T: CustomNum> PiecewiseLinear<T> {
+        Self {
+            domain,
+            first_slope,
+            last_slope,
+            points,
+        }
+    }
+
     pub fn get_rnk(&self, at: T) -> Result<usize, usize> {
         self.points.binary_search_by_key(&at, |&Point(x, _)| x)
     }
@@ -50,40 +73,48 @@ impl<T: CustomNum> PiecewiseLinear<T> {
             }
         }
     }
-}
 
-
-fn sum_op<T: CustomNum>(lhs: &PiecewiseLinear<T>, rhs: &PiecewiseLinear<T>, op: fn(T, T) -> T) -> PiecewiseLinear<T> {
+fn sum_op<T: Num, F: Fn(T, T) -> T>(
+    lhs: &PiecewiseLinear<T>,
+    rhs: &PiecewiseLinear<T>,
+    op: F,
+) -> PiecewiseLinear<T> {
     let new_domain = (
         max(lhs.domain.0, rhs.domain.0),
-        min(lhs.domain.1, rhs.domain.1)
+        min(lhs.domain.1, rhs.domain.1),
     );
 
     let l_domain_changed = new_domain.0 != lhs.domain.0 || new_domain.0 != rhs.domain.0;
     let r_domain_changed = new_domain.1 != lhs.domain.1 || new_domain.1 != rhs.domain.1;
 
-    let mut self_rng = (0, lhs.points.len());
+    let mut lhs_rng = (0, lhs.points.len());
     let mut rhs_rng = (0, rhs.points.len());
 
     let first_point: Option<Point<T>> = if !l_domain_changed {
         None
     } else {
         let at = new_domain.0;
-        let self_rnk = lhs.get_rnk(at);
+        let lhs_rnk = lhs.get_rnk(at);
         let rhs_rnk = rhs.get_rnk(at);
 
-        self_rng.0 = match self_rnk {
+        lhs_rng.0 = match lhs_rnk {
             Ok(i) => i,
-            Err(i) => i
+            Err(i) => i,
         };
         rhs_rng.0 = match rhs_rnk {
             Ok(i) => i,
-            Err(i) => i
+            Err(i) => i,
         };
-        if self_rnk.is_ok() || rhs_rnk.is_ok() {
+        if lhs_rnk.is_ok() || rhs_rnk.is_ok() {
             None
         } else {
-            Some(Point(new_domain.0, op(lhs.eval_with_rank(self_rnk, at), rhs.eval_with_rank(rhs_rnk, at))))
+            Some(Point(
+                new_domain.0,
+                op(
+                    lhs.eval_with_rank(lhs_rnk, at),
+                    rhs.eval_with_rank(rhs_rnk, at),
+                ),
+            ))
         }
     };
 
@@ -91,40 +122,54 @@ fn sum_op<T: CustomNum>(lhs: &PiecewiseLinear<T>, rhs: &PiecewiseLinear<T>, op: 
         None
     } else {
         let at = new_domain.1;
-        let self_rnk = lhs.get_rnk(at);
+        let lhs_rnk = lhs.get_rnk(at);
         let rhs_rnk = rhs.get_rnk(at);
 
-        self_rng.1 = match self_rnk {
+        lhs_rng.1 = match lhs_rnk {
             Ok(i) => i + 1,
-            Err(i) => i
+            Err(i) => i,
         };
         rhs_rng.1 = match rhs_rnk {
             Ok(i) => i + 1,
-            Err(i) => i
+            Err(i) => i,
         };
-        if self_rnk.is_ok() || rhs_rnk.is_ok() {
+        if lhs_rnk.is_ok() || rhs_rnk.is_ok() {
             None
         } else {
-            Some(Point(new_domain.1, op(lhs.eval_with_rank(self_rnk, at), rhs.eval_with_rank(rhs_rnk, at))))
+            Some(Point(
+                new_domain.1,
+                op(
+                    lhs.eval_with_rank(lhs_rnk, at),
+                    rhs.eval_with_rank(rhs_rnk, at),
+                ),
+            ))
         }
     };
 
+    // This is a worst-case capacity.
+    // For better memory-usage, we could first find out how many elements we exactly need before allocating.
+    // That potentially comes with a performance drawback.
     let capacity = lhs.points.len() + rhs.points.len() + 2;
     let mut new_points: Vec<Point<T>> = Vec::with_capacity(capacity);
-    if let Some(value) = first_point { new_points.push(value); }
 
-    let new_iter = lhs.points[self_rng.0..self_rng.1].iter().merge_join_by(
-        rhs.points[rhs_rng.0..rhs_rng.1].iter(),
-        |x, y| x.0.cmp(&y.0),
-    );
+    if let Some(value) = first_point {
+        new_points.push(value);
+    }
 
-    let mut cur_i = self_rng.0;
+    let new_iter = lhs.points[lhs_rng.0..lhs_rng.1]
+        .iter()
+        .merge_join_by(rhs.points[rhs_rng.0..rhs_rng.1].iter(), |x, y| {
+            x.0.cmp(&y.0)
+        });
+
+    let mut cur_i = lhs_rng.0;
     let mut cur_j = rhs_rng.0;
 
+    // Returns true, if `t` lies in the future by an offset of T::TOL.
     let time_in_tolerance = |t: T, list: &Vec<Point<T>>| -> bool {
         match list.last() {
             None => true,
-            Some(p) => p.0 < (t - T::TOL)
+            Some(p) => p.0 < (t - T::TOL),
         }
     };
 
@@ -155,7 +200,9 @@ fn sum_op<T: CustomNum>(lhs: &PiecewiseLinear<T>, rhs: &PiecewiseLinear<T>, op: 
         };
     }
 
-    if let Some(value) = last_point { new_points.push(value); }
+    if let Some(value) = last_point {
+        new_points.push(value);
+    }
 
     PiecewiseLinear {
         domain: new_domain,
@@ -165,20 +212,35 @@ fn sum_op<T: CustomNum>(lhs: &PiecewiseLinear<T>, rhs: &PiecewiseLinear<T>, op: 
     }
 }
 
-
-impl<T: CustomNum> Add<&PiecewiseLinear<T>> for &PiecewiseLinear<T> {
+impl<T: Num> Add<&PiecewiseLinear<T>> for &PiecewiseLinear<T> {
     type Output = PiecewiseLinear<T>;
 
+    #[inline]
     fn add(self, rhs: &PiecewiseLinear<T>) -> Self::Output {
-        sum_op(self, rhs, |x, y| x + y)
+        sum_op(self, rhs, |a, b| a + b)
     }
 }
 
-
-impl<T: CustomNum> Sub<&PiecewiseLinear<T>> for &PiecewiseLinear<T> {
+impl<T: Num> Sub<&PiecewiseLinear<T>> for &PiecewiseLinear<T> {
     type Output = PiecewiseLinear<T>;
 
+    #[inline]
     fn sub(self, rhs: &PiecewiseLinear<T>) -> Self::Output {
-        sum_op(self, rhs, |x, y| x - y)
+        sum_op(self, rhs, |a, b| a - b)
+    }
+}
+
+impl<T: Num> Display for PiecewiseLinear<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PiecewiseLinear {{ ")?;
+        write!(f, "domain: ({:},{:}), ", self.domain.0, self.domain.1)?;
+        write!(f, "first_slope: {:}, ", self.first_slope)?;
+        write!(f, "last_slope: {:}, ", self.last_slope)?;
+        write!(f, "points: [ ")?;
+        for p in &self.points {
+            write!(f, "{:}, ", p)?;
+        }
+        write!(f, "] ")?;
+        write!(f, "}}")
     }
 }

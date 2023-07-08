@@ -1,38 +1,31 @@
+mod float;
 mod graph;
+mod num;
 mod piecewise_linear;
+mod plot;
 
-
-use ordered_float::{OrderedFloat};
-
+use crate::{float::F64, num::Num};
 use piecewise_linear::{PiecewiseLinear, Point};
-use crate::piecewise_linear::CustomNum;
-
-impl CustomNum for OrderedFloat<f64> {
-    const EXACT_ARITHMETIC: bool = false;
-    const TOL: Self = flt(1e-9);
-}
-
-const fn flt(val: f64) -> OrderedFloat<f64> {
-    OrderedFloat(val)
-}
 
 fn main() {
-    let f1: PiecewiseLinear<OrderedFloat<f64>> = PiecewiseLinear {
-        domain: (flt(-f64::INFINITY), flt(f64::INFINITY)),
-        first_slope: flt(1.),
-        last_slope: flt(1.),
-        points: vec![Point(flt(1.), flt(1.))],
-    };
+    let f1: PiecewiseLinear<F64> = PiecewiseLinear::new(
+        (-F64::INFINITY, F64::INFINITY),
+        1.0.into(),
+        1.0.into(),
+        vec![Point(1.0.into(), 1.0.into())],
+    );
 
-    let f2: PiecewiseLinear<OrderedFloat<f64>> = PiecewiseLinear {
-        domain: (flt(-3.), flt(-1.)),
-        first_slope: flt(3.),
-        last_slope: flt(1.),
-        points: vec![Point(flt(-2.), flt(1.))],
-    };
+    let f2: PiecewiseLinear<F64> = PiecewiseLinear::new(
+        (-F64::INFINITY, F64::INFINITY),
+        3.0.into(),
+        1.0.into(),
+        vec![Point((-2.0).into(), 1.0.into())],
+    );
 
     let g = &f1 + &f2;
 
-    println!("Evaluation: {}", g.eval(flt(-1.)));
-    println!("g: {:#?}", g);
+    println!("Evaluation: {}", g.eval((-1.0).into()));
+    println!("g: {:}", g);
+    println!("g(-3) {}", g.eval((-3.0).into()));
+    plot::plot(g, "test.png");
 }
