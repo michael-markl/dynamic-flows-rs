@@ -1,7 +1,7 @@
 use itertools::{EitherOrBoth, Itertools};
 use std::cmp::{max, min};
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Neg, Sub};
 
 use crate::num::Num;
 
@@ -77,7 +77,7 @@ impl<T: Num> PiecewiseLinear<T> {
     /// Returns the gradient between `points[i-1].0` (or `domain.0` if `i == 0`) and `times[i]`
     /// (or `domain.1` if `i == len(times)`)
     pub fn gradient(&self, i: usize) -> T {
-        todo!("The following code has not been tested!");
+        // TODO: The following code has not been tested!
 
         debug_assert!(i <= self.points.len(), "i is not in the expected range.");
         if i == 0 {
@@ -93,7 +93,7 @@ impl<T: Num> PiecewiseLinear<T> {
 
     /// Returns the composition h(x):= self(rhs(x))
     pub fn compose(&self, rhs: &PiecewiseLinear<T>) -> PiecewiseLinear<T> {
-        todo!("The following code has not been tested!");
+        // TODO: The following code has not been tested!
         let g = self;
         let f = rhs;
 
@@ -150,7 +150,7 @@ impl<T: Num> PiecewiseLinear<T> {
                 let inv = f.inverse(next_time, f.points.len()); // todo: check usages of inverse
                 if points.last().map_or(true, |x| inv > x.0 + T::TOL) {
                     let p = Point(inv, g.eval(next_time)); // todo: use rnk for g
-                    points.push(p);
+                    points.push(p); 
                 }
             }
             i_g += 1;
@@ -166,13 +166,21 @@ impl<T: Num> PiecewiseLinear<T> {
     }
 
     fn is_monotone(&self) -> bool {
-        todo!()
+        return self.first_slope >= T::ZERO
+            && self.last_slope >= T::ZERO
+            && self.points.windows(2).all(|w| w[0].1 <= w[1].1);
     }
     fn image(&self) -> (T, T) {
-        todo!()
+        debug_assert!(
+            self.is_monotone(),
+            "Only implemented for monotone functions."
+        );
+        // TODO: The performance could be improved by guessing the rank.
+        return (self.eval(self.domain.0), self.eval(self.domain.1));
     }
+
     fn inverse(&self, p0: T, p1: usize) -> T {
-        todo!()
+        todo!("Not yet implemented!")
     }
 }
 
@@ -329,6 +337,19 @@ impl<T: Num> Sub<&PiecewiseLinear<T>> for &PiecewiseLinear<T> {
     #[inline]
     fn sub(self, rhs: &PiecewiseLinear<T>) -> Self::Output {
         sum_op(self, rhs, |a, b| a - b)
+    }
+}
+
+impl<T: Num> Neg for &PiecewiseLinear<T> {
+    type Output = PiecewiseLinear<T>;
+
+    fn neg(self) -> Self::Output {
+        return PiecewiseLinear::new(
+            self.domain,
+            -self.first_slope,
+            -self.last_slope,
+            self.points.iter().map(|p| Point(p.0, -p.1)).collect_vec(),
+        );
     }
 }
 
