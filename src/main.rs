@@ -1,10 +1,11 @@
 mod float;
 mod num;
+mod piecewise_constant;
 mod piecewise_linear;
 mod plot;
 mod point;
 
-use crate::{float::F64, num::Num, point::Point};
+use crate::{float::F64, num::Num};
 use piecewise_linear::PiecewiseLinear;
 
 fn main() {

@@ -181,7 +181,7 @@ impl<T: Num> PiecewiseLinear<T> {
         return (self.eval(self.domain.0), self.eval(self.domain.1));
     }
 
-    fn inverse(&self, p0: T, p1: usize) -> T {
+    fn inverse(&self, _p0: T, _p1: usize) -> T {
         todo!("Not yet implemented!")
     }
 }
@@ -372,7 +372,7 @@ impl<T: Num> Display for PiecewiseLinear<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{float::F64, piecewise_linear::PiecewiseLinear, point::Point, points};
+    use crate::{float::F64, piecewise_linear::PiecewiseLinear, points};
 
     #[test]
     fn it_adds_two_piecewise_linear_functions() {
