@@ -83,10 +83,17 @@ impl One for F64 {
     }
 }
 
-impl PartialEq for F64 {
+impl PartialEq<F64> for F64 {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.0.eq(&other.0)
+    }
+}
+
+impl PartialEq<f64> for F64 {
+    #[inline]
+    fn eq(&self, other: &f64) -> bool {
+        self.0.eq(other)
     }
 }
 
