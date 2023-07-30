@@ -4,15 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Neg, Sub};
 
 use crate::num::Num;
-
-#[derive(Debug)]
-pub struct Point<T: Num>(pub T, pub T);
-
-impl<T: Num> Display for Point<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "({:}, {:})", self.0, self.1)
-    }
-}
+use crate::point::Point;
 
 #[derive(Debug)]
 pub struct PiecewiseLinear<T: Num> {
@@ -23,7 +15,16 @@ pub struct PiecewiseLinear<T: Num> {
 }
 
 impl<T: Num> PiecewiseLinear<T> {
-    pub fn new(domain: (T, T), first_slope: T, last_slope: T, points: Vec<Point<T>>) -> Self {
+    pub fn new(
+        domain: (impl Into<T>, impl Into<T>),
+        first_slope: impl Into<T>,
+        last_slope: impl Into<T>,
+        points: Vec<Point<T>>,
+    ) -> Self {
+        let domain: (T, T) = (domain.0.into(), domain.1.into());
+        let first_slope: T = first_slope.into();
+        let last_slope: T = last_slope.into();
+        let domain: (T, T) = (domain.0.into(), domain.1.into());
         debug_assert!(domain.0 <= domain.1, "The domain is not well defined.");
         debug_assert!(points.len() >= 1, "There must be at least one point.");
         debug_assert!(
@@ -51,7 +52,8 @@ impl<T: Num> PiecewiseLinear<T> {
         self.points.binary_search_by_key(&at, |&Point(x, _)| x)
     }
 
-    pub fn eval(&self, at: T) -> T {
+    pub fn eval(&self, at: impl Into<T>) -> T {
+        let at = at.into();
         self.eval_with_rank(self.get_rnk(at), at)
     }
 
@@ -66,8 +68,8 @@ impl<T: Num> PiecewiseLinear<T> {
                     let first = &self.points[rnk];
                     first.1 + (at - first.0) * self.first_slope
                 } else {
-                    let left = &self.points[rnk];
-                    let right = &self.points[rnk + 1];
+                    let left = &self.points[rnk - 1];
+                    let right = &self.points[rnk];
                     left.1 + (at - left.0) * (right.1 - left.1) / (right.0 - left.0)
                 }
             }
@@ -150,7 +152,7 @@ impl<T: Num> PiecewiseLinear<T> {
                 let inv = f.inverse(next_time, f.points.len()); // todo: check usages of inverse
                 if points.last().map_or(true, |x| inv > x.0 + T::TOL) {
                     let p = Point(inv, g.eval(next_time)); // todo: use rnk for g
-                    points.push(p); 
+                    points.push(p);
                 }
             }
             i_g += 1;
@@ -365,5 +367,23 @@ impl<T: Num> Display for PiecewiseLinear<T> {
         }
         write!(f, "] ")?;
         write!(f, "}}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{float::F64, piecewise_linear::PiecewiseLinear, point::Point, points};
+
+    #[test]
+    fn it_adds_two_piecewise_linear_functions() {
+        let f: PiecewiseLinear<F64> =
+            PiecewiseLinear::new((0.0, 1.0), 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
+        let g: PiecewiseLinear<F64> =
+            PiecewiseLinear::new((0.0, 1.0), 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
+        let h = &f + &g;
+        assert_eq!(h.eval(0.0), 0.0);
+        assert_eq!(h.eval(0.5), 1.0);
+        assert_eq!(h.eval(1.0), 2.0);
+        assert_eq!(h.points, points![(0.0, 0.0), (1.0, 2.0)]);
     }
 }

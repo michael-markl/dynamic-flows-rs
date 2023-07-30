@@ -11,6 +11,12 @@ impl<T: Num> Display for Point<T> {
     }
 }
 
+impl<T: Num> PartialEq for Point<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
 #[macro_export]
 macro_rules! points {
     ( $( $x:expr ),+ ) => {
