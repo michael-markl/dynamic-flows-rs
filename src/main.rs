@@ -1,5 +1,4 @@
 mod float;
-mod graph;
 mod num;
 mod piecewise_linear;
 mod plot;
