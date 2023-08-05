@@ -1,9 +1,10 @@
 use std::{
     fmt::{Debug, Display},
-    ops::{Add, Div, Mul, Neg, Rem, Sub},
+    hash::Hash,
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign},
 };
 
-use num_traits::{Num as NumTraitsNum, One, Zero};
+use num_traits::{Num as NumTraitsNum, One, Signed, Zero};
 use ordered_float::OrderedFloat;
 
 use crate::num::Num;
@@ -12,10 +13,17 @@ use crate::num::Num;
 #[derive(Copy, Clone, Debug)]
 pub struct F64(OrderedFloat<f64>);
 
-impl From<f64> for F64 {
+impl Into<F64> for OrderedFloat<f64> {
     #[inline]
-    fn from(val: f64) -> Self {
-        Self(OrderedFloat(val))
+    fn into(self) -> F64 {
+        F64(self)
+    }
+}
+
+impl Into<F64> for f64 {
+    #[inline]
+    fn into(self) -> F64 {
+        OrderedFloat(self).into()
     }
 }
 
@@ -154,7 +162,83 @@ impl Neg for F64 {
 
     #[inline]
     fn neg(self) -> Self::Output {
-        Self(self.0.neg())
+        self.0.neg().into()
+    }
+}
+
+impl Hash for F64 {
+    #[inline]
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
+    }
+}
+
+impl std::iter::Sum for F64 {
+    #[inline]
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.map(|x| x.0 .0).sum::<f64>().into()
+    }
+}
+
+impl Signed for F64 {
+    #[inline]
+    fn abs(&self) -> Self {
+        return self.0.abs().into();
+    }
+
+    #[inline]
+    fn abs_sub(&self, other: &Self) -> Self {
+        return self.0.abs_sub(&other.0).into();
+    }
+
+    #[inline]
+    fn signum(&self) -> Self {
+        return self.0.signum().into();
+    }
+
+    #[inline]
+    fn is_positive(&self) -> bool {
+        return self.0.is_positive();
+    }
+
+    #[inline]
+    fn is_negative(&self) -> bool {
+        return self.0.is_negative();
+    }
+}
+
+impl AddAssign for F64 {
+    #[inline]
+    fn add_assign(&mut self, rhs: Self) {
+        self.0.add_assign(rhs.0);
+    }
+}
+
+impl SubAssign for F64 {
+    #[inline]
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0.sub_assign(rhs.0);
+    }
+}
+
+impl MulAssign for F64 {
+    #[inline]
+    fn mul_assign(&mut self, rhs: Self) {
+        self.0.mul_assign(rhs.0);
+    }
+}
+
+impl RemAssign for F64 {
+    #[inline]
+    fn rem_assign(&mut self, rhs: Self) {
+        self.0.rem_assign(rhs.0);
+    }
+}
+
+impl DivAssign for F64 {
+    #[inline]
+    fn div_assign(&mut self, rhs: Self) {
+        self.0.div_assign(rhs.0);
     }
 }
 
