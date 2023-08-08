@@ -2,7 +2,7 @@ use std::fmt::{Display, Formatter};
 
 use crate::num::Num;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Point<T: Num>(pub T, pub T);
 
 impl<T: Num> Display for Point<T> {

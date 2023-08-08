@@ -1,4 +1,5 @@
 use itertools::{EitherOrBoth, Itertools};
+use num_traits::abs;
 use std::cmp::{max, min};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Neg, Sub};
@@ -6,7 +7,7 @@ use std::ops::{Add, Neg, Sub};
 use crate::num::Num;
 use crate::point::Point;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PiecewiseLinear<T: Num> {
     pub domain: (T, T),
     first_slope: T,
@@ -48,13 +49,13 @@ impl<T: Num> PiecewiseLinear<T> {
         }
     }
 
-    pub fn get_rnk(&self, at: T) -> Result<usize, usize> {
-        self.points.binary_search_by_key(&at, |&Point(x, _)| x)
+    pub fn get_rnk(&self, at: &T) -> Result<usize, usize> {
+        self.points.binary_search_by(|p| p.0.cmp(at))
     }
 
     pub fn eval(&self, at: impl Into<T>) -> T {
         let at = at.into();
-        self.eval_with_rank(self.get_rnk(at), at)
+        self.eval_with_rank(self.get_rnk(&at), at)
     }
 
     pub fn eval_with_rank(&self, rnk: Result<usize, usize>, at: T) -> T {
@@ -113,7 +114,7 @@ impl<T: Num> PiecewiseLinear<T> {
 
         let mut points: Vec<Point<T>> = Vec::new(); // todo: add some heuristic capacity
         let f_img = f.image();
-        let g_rnk = match g.get_rnk(f_img.0) {
+        let g_rnk = match g.get_rnk(&f_img.0) {
             Ok(i) => i,
             Err(i) => i,
         };
@@ -177,12 +178,27 @@ impl<T: Num> PiecewiseLinear<T> {
             self.is_monotone(),
             "Only implemented for monotone functions."
         );
-        // TODO: The performance could be improved by guessing the rank.
+        // TODO: The performance could be improved by determining the rank.
         return (self.eval(self.domain.0), self.eval(self.domain.1));
     }
 
     fn inverse(&self, _p0: T, _p1: usize) -> T {
         todo!("Not yet implemented!")
+    }
+
+    pub fn extend(&mut self, from_time: &T, slope: T) {
+        let last_point = self.points.last().unwrap();
+        assert!(*from_time >= last_point.0 - T::TOL);
+        if abs(self.last_slope - slope) <= T::TOL {
+            return;
+        }
+        if abs(*from_time - last_point.0) > T::TOL {
+            self.points.push(Point(
+                *from_time,
+                last_point.1 + (*from_time - last_point.0) * self.last_slope,
+            ));
+        }
+        self.last_slope = slope;
     }
 }
 
@@ -206,8 +222,8 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
         None
     } else {
         let at = new_domain.0;
-        let lhs_rnk = lhs.get_rnk(at);
-        let rhs_rnk = rhs.get_rnk(at);
+        let lhs_rnk = lhs.get_rnk(&at);
+        let rhs_rnk = rhs.get_rnk(&at);
 
         lhs_rng.0 = match lhs_rnk {
             Ok(i) => i,
@@ -234,8 +250,8 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
         None
     } else {
         let at = new_domain.1;
-        let lhs_rnk = lhs.get_rnk(at);
-        let rhs_rnk = rhs.get_rnk(at);
+        let lhs_rnk = lhs.get_rnk(&at);
+        let rhs_rnk = rhs.get_rnk(&at);
 
         lhs_rng.1 = match lhs_rnk {
             Ok(i) => i + 1,
@@ -372,7 +388,7 @@ impl<T: Num> Display for PiecewiseLinear<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{float::F64, piecewise_linear::PiecewiseLinear, points};
+    use crate::{float::F64, num::Num, piecewise_linear::PiecewiseLinear, points};
 
     #[test]
     fn it_adds_two_piecewise_linear_functions() {
@@ -385,5 +401,22 @@ mod tests {
         assert_eq!(h.eval(0.5), 1.0);
         assert_eq!(h.eval(1.0), 2.0);
         assert_eq!(h.points, points![(0.0, 0.0), (1.0, 2.0)]);
+    }
+
+    #[test]
+    fn it_should_extend_correctly() {
+        let mut f: PiecewiseLinear<F64> =
+            PiecewiseLinear::new((0.0, 1.0), 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
+
+        f.extend(&2.0.into(), 2.0.into());
+        assert_eq!(f.eval(2.0), 2.0);
+        assert_eq!(f.eval(3.0), 4.0);
+        f.extend(&2.0.into(), F64::from(2.0.into()) + F64::TOL / 2.0.into());
+        assert_eq!(f.points.len(), 3);
+        f.extend(
+            &(F64::from(2.0.into()) - F64::TOL / 2.0.into()),
+            F64::from(2.0.into()),
+        );
+        assert_eq!(f.points.len(), 3);
     }
 }

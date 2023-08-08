@@ -1,7 +1,9 @@
+use num_traits::abs;
+
 use crate::num::Num;
 use crate::point::Point;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PiecewiseConstant<T: Num> {
     pub domain: (T, T),
     pub points: Vec<Point<T>>, // TODO: Maybe use a NonEmptyVec here
@@ -45,6 +47,20 @@ impl<T: Num> PiecewiseConstant<T> {
             }
         }
     }
+
+    pub fn extend(&mut self, from_time: &T, value: &T) {
+        let last_point = self.points.last_mut().unwrap();
+        debug_assert!(*from_time >= last_point.0 - T::TOL);
+        if abs(last_point.1 - *value) <= T::TOL {
+            // The value is (by tolerance) the same as the last point, so we don't need to add a new point.
+            return;
+        }
+        if abs(last_point.0 - *from_time) <= T::TOL {
+            last_point.1 = *value;
+        } else {
+            self.points.push(Point(*from_time, *value));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -64,5 +80,26 @@ mod tests {
         assert_eq!(f.eval(1.5), 1.0);
         assert_eq!(f.eval(2.0), 2.0);
         assert_eq!(f.eval(3.0), 2.0);
+    }
+
+    #[test]
+    pub fn it_extends_correctly() {
+        let mut f: PiecewiseConstant<F64> =
+            PiecewiseConstant::new((-F64::INFINITY, F64::INFINITY), points![(0.0, 0.0)]);
+        f.extend(&1.0.into(), &2.0.into());
+
+        assert_eq!(f.eval(-1.0), 0.0);
+        assert_eq!(f.eval(0.9), 0.0);
+        assert_eq!(f.eval(1.0), 2.0);
+        f.extend(
+            &(F64::from(1.0.into()) + F64::TOL / F64::from(2.0.into())),
+            &3.0.into(),
+        );
+        assert_eq!(f.eval(1.0), 3.0);
+
+        f.extend(&3.0.into(), &3.0.into());
+        assert_eq!(f.eval(1.0), 3.0);
+        assert_eq!(f.eval(4.0), 3.0);
+        assert_eq!(f.points.len(), 2)
     }
 }
