@@ -13,17 +13,17 @@ use crate::num::Num;
 #[derive(Copy, Clone, Debug)]
 pub struct F64(OrderedFloat<f64>);
 
-impl Into<F64> for OrderedFloat<f64> {
+impl From<OrderedFloat<f64>> for F64 {
     #[inline]
-    fn into(self) -> F64 {
-        F64(self)
+    fn from(val: OrderedFloat<f64>) -> Self {
+        F64(val)
     }
 }
 
-impl Into<F64> for f64 {
+impl From<f64> for F64 {
     #[inline]
-    fn into(self) -> F64 {
-        OrderedFloat(self).into()
+    fn from(val: f64) -> Self {
+        OrderedFloat(val).into()
     }
 }
 
@@ -87,7 +87,7 @@ impl Zero for F64 {
 impl One for F64 {
     #[inline]
     fn one() -> Self {
-        return Self(OrderedFloat::one());
+        Self(OrderedFloat::one())
     }
 }
 
@@ -183,27 +183,27 @@ impl std::iter::Sum for F64 {
 impl Signed for F64 {
     #[inline]
     fn abs(&self) -> Self {
-        return self.0.abs().into();
+        self.0.abs().into()
     }
 
     #[inline]
     fn abs_sub(&self, other: &Self) -> Self {
-        return self.0.abs_sub(&other.0).into();
+        self.0.abs_sub(&other.0).into()
     }
 
     #[inline]
     fn signum(&self) -> Self {
-        return self.0.signum().into();
+        self.0.signum().into()
     }
 
     #[inline]
     fn is_positive(&self) -> bool {
-        return self.0.is_positive();
+        self.0.is_positive()
     }
 
     #[inline]
     fn is_negative(&self) -> bool {
-        return self.0.is_negative();
+        self.0.is_negative()
     }
 }
 

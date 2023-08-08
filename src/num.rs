@@ -29,7 +29,7 @@ pub trait Sum: for<'a> Iterator {
     {
         self.fold(T::ZERO, |mut acc, x| {
             acc += *x;
-            return acc;
+            acc
         })
     }
 }

@@ -1,12 +1,12 @@
+mod depletion_queue;
+mod dynamic_flow;
 mod float;
 mod num;
+mod option_ext;
 mod piecewise_constant;
 mod piecewise_linear;
 mod plot;
 mod point;
-mod dynamic_flow;
-mod option_ext;
-mod depletion_queue;
 
 use crate::{float::F64, num::Num};
 use piecewise_linear::PiecewiseLinear;

@@ -13,7 +13,7 @@ impl<T: Num> PiecewiseConstant<T> {
     pub fn new(domain: (impl Into<T>, impl Into<T>), points: Vec<Point<T>>) -> Self {
         let domain = (domain.0.into(), domain.1.into());
         debug_assert!(domain.0 <= domain.1, "The domain is not well defined.");
-        debug_assert!(points.len() >= 1, "There must be at least one point.");
+        debug_assert!(!points.is_empty(), "There must be at least one point.");
         debug_assert!(
             points[0].0 >= domain.0,
             "The first point is not in the domain."
@@ -91,10 +91,7 @@ mod tests {
         assert_eq!(f.eval(-1.0), 0.0);
         assert_eq!(f.eval(0.9), 0.0);
         assert_eq!(f.eval(1.0), 2.0);
-        f.extend(
-            &(F64::from(1.0.into()) + F64::TOL / F64::from(2.0.into())),
-            &3.0.into(),
-        );
+        f.extend(&(F64::from(1.0) + F64::TOL / F64::from(2.0)), &3.0.into());
         assert_eq!(f.eval(1.0), 3.0);
 
         f.extend(&3.0.into(), &3.0.into());

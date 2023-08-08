@@ -63,7 +63,7 @@ impl<T: Num> DepletionQueue<T> {
                     value: change_event_val,
                 }
             });
-        return Some((edge, depletion_time, change_event));
+        Some((edge, depletion_time, change_event))
     }
 
     pub fn min_depletion_time(&self) -> Option<&T> {

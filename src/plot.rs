@@ -20,8 +20,8 @@ pub fn plot<T: Num, P: AsRef<Path> + ?Sized>(pwl: PiecewiseLinear<T>, path: &P) 
         let mut min_y: T = T::INFINITY;
         let mut max_y: T = -T::INFINITY;
         for p in pwl.points.iter() {
-            min_y = min(min_y, p.1.clone());
-            max_y = max(max_y, p.1.clone());
+            min_y = min(min_y, p.1);
+            max_y = max(max_y, p.1);
         }
         let min_x = pwl.points[0].0;
         let max_x = pwl.points.last().unwrap().0;
