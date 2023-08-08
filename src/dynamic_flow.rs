@@ -64,7 +64,7 @@ impl<T: Num> FlowRatesCollection<T> {
                 for (i, value) in values_map.iter() {
                     let mut new_fn =
                         PiecewiseConstant::new((T::ZERO, T::INFINITY), points![(T::ZERO, T::ZERO)]);
-                    new_fn.extend(&from_time, &value);
+                    new_fn.extend(&from_time, value);
                     let res = self.function_by_comm.insert(*i, new_fn);
                     assert!(res.is_none());
                 }
@@ -78,11 +78,11 @@ impl<T: Num> FlowRatesCollection<T> {
                                 (T::ZERO, T::INFINITY),
                                 points![(T::ZERO, T::ZERO)],
                             );
-                            new_fn.extend(&from_time, &value);
+                            new_fn.extend(&from_time, value);
                             self.function_by_comm.insert(*i, new_fn);
                         }
                         Some(function) => {
-                            function.extend(&from_time, &value);
+                            function.extend(&from_time, value);
                         }
                     }
                 }
@@ -142,9 +142,9 @@ impl<T: Num> DynamicFlow<T> {
         &mut self,
         new_inflow: HashMap<usize, HashMap<usize, T>>,
         max_extension_time: Option<T>,
-        capacity: &Vec<T>,
-        inv_capacity: &Vec<T>,
-        travel_time: &Vec<T>,
+        capacity: &[T],
+        inv_capacity: &[T],
+        travel_time: &[T],
     ) -> HashSet<usize> {
         for (edge, new_inflow_e) in new_inflow.into_iter() {
             if *self.inflow[edge]
@@ -216,7 +216,7 @@ impl<T: Num> DynamicFlow<T> {
             changed_edges.insert(self.outflow_changes.pop().unwrap().0 .0);
         }
 
-        return changed_edges;
+        changed_edges
     }
 
     fn _extend_case_i(&mut self, edge: usize, cur_queue: T, inv_capacity: T, travel_time: T) {
@@ -357,17 +357,17 @@ mod tests {
         dynamic_flow.extend(
             HashMap::from([(0usize, HashMap::from([(0usize, 1.0.into())]))]),
             None,
-            &vec![1.0.into()],
-            &vec![1.0.into()],
-            &vec![1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
         );
         assert_eq!(dynamic_flow.built_until, 1.0);
         dynamic_flow.extend(
             HashMap::from([(0usize, HashMap::from([(0usize, 1.0.into())]))]),
             None,
-            &vec![1.0.into()],
-            &vec![1.0.into()],
-            &vec![1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
         );
         assert_eq!(dynamic_flow.built_until, F64::INFINITY);
     }

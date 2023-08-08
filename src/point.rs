@@ -21,7 +21,7 @@ impl<T: Num> PartialEq for Point<T> {
 macro_rules! points {
     ( $( $x:expr ),+ ) => {
         {
-            use crate::point::Point;
+            use $crate::point::Point;
             vec!( $( Point($x.0.into(), $x.1.into()) ),* )
         }
     };

@@ -25,9 +25,8 @@ impl<T: Num> PiecewiseLinear<T> {
         let domain: (T, T) = (domain.0.into(), domain.1.into());
         let first_slope: T = first_slope.into();
         let last_slope: T = last_slope.into();
-        let domain: (T, T) = (domain.0.into(), domain.1.into());
         debug_assert!(domain.0 <= domain.1, "The domain is not well defined.");
-        debug_assert!(points.len() >= 1, "There must be at least one point.");
+        debug_assert!(!points.is_empty(), "There must be at least one point.");
         debug_assert!(
             points[0].0 >= domain.0,
             "The first point is not in the domain."
@@ -60,7 +59,7 @@ impl<T: Num> PiecewiseLinear<T> {
 
     pub fn eval_with_rank(&self, rnk: Result<usize, usize>, at: T) -> T {
         match rnk {
-            Ok(rnk) => self.points[rnk].1.clone(),
+            Ok(rnk) => self.points[rnk].1,
             Err(rnk) => {
                 if rnk == self.points.len() {
                     let last = &self.points[rnk - 1];
@@ -160,12 +159,12 @@ impl<T: Num> PiecewiseLinear<T> {
         }
 
         let last_slope = g.gradient(i_g) * f.last_slope;
-        return PiecewiseLinear {
+        PiecewiseLinear {
             domain: f.domain,
             first_slope,
             last_slope,
             points,
-        };
+        }
     }
 
     fn is_monotone(&self) -> bool {
@@ -179,7 +178,7 @@ impl<T: Num> PiecewiseLinear<T> {
             "Only implemented for monotone functions."
         );
         // TODO: The performance could be improved by determining the rank.
-        return (self.eval(self.domain.0), self.eval(self.domain.1));
+        (self.eval(self.domain.0), self.eval(self.domain.1))
     }
 
     fn inverse(&self, _p0: T, _p1: usize) -> T {
@@ -411,12 +410,9 @@ mod tests {
         f.extend(&2.0.into(), 2.0.into());
         assert_eq!(f.eval(2.0), 2.0);
         assert_eq!(f.eval(3.0), 4.0);
-        f.extend(&2.0.into(), F64::from(2.0.into()) + F64::TOL / 2.0.into());
+        f.extend(&2.0.into(), F64::from(2.0) + F64::TOL / 2.0.into());
         assert_eq!(f.points.len(), 3);
-        f.extend(
-            &(F64::from(2.0.into()) - F64::TOL / 2.0.into()),
-            F64::from(2.0.into()),
-        );
+        f.extend(&(F64::from(2.0) - F64::TOL / 2.0.into()), F64::from(2.0));
         assert_eq!(f.points.len(), 3);
     }
 }
