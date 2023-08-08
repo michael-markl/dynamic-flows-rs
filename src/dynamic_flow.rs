@@ -96,8 +96,16 @@ impl<T: Num> FlowRatesCollection<T> {
     }
 }
 
+/// A PreprocessedOutflowChange described the change of the outflow of an edge.
+/// The time at which this change happens is at most T_e(built_until).
+/// The outflow rate function of edge has already been extended by this change.
+/// Hence, we only keep the time at which the change happens, in order to keep track
+/// of edges that change in the future.
 #[derive(Hash, PartialEq, Eq)]
-struct OutflowChange<T: Num>(usize, T);
+struct PreprocessedOutflowChange<T: Num> {
+    edge: usize,
+    change_time: T,
+}
 
 struct DynamicFlow<T: Num> {
     built_until: T,
@@ -108,8 +116,8 @@ struct DynamicFlow<T: Num> {
     outflow: Vec<FlowRatesCollection<T>>,
     // queues[e] is the queue length at e
     queues: Vec<PiecewiseLinear<T>>,
-    // A priority queue with times when some edge outflow changes
-    outflow_changes: PriorityQueue<OutflowChange<T>, Reverse<T>>,
+    // A priority queue with times when some edge outflow changes up to (and including) the current arrivel time of the edge
+    outflow_changes: PriorityQueue<PreprocessedOutflowChange<T>, Reverse<T>>,
     // A priority queue with events at which queues deplete
     depletions: DepletionQueue<T>,
 }
@@ -213,7 +221,7 @@ impl<T: Num> DynamicFlow<T> {
             .peek()
             .is_some_and(|(_, Reverse(time))| time <= &self.built_until)
         {
-            changed_edges.insert(self.outflow_changes.pop().unwrap().0 .0);
+            changed_edges.insert(self.outflow_changes.pop().unwrap().0.edge);
         }
 
         changed_edges
@@ -224,8 +232,13 @@ impl<T: Num> DynamicFlow<T> {
         let arrival = self.built_until + cur_queue * inv_capacity + travel_time;
         self.outflow[edge].extend(arrival, HashMap::new(), T::ZERO);
 
-        self.outflow_changes
-            .push(OutflowChange(edge, arrival), Reverse(arrival));
+        self.outflow_changes.push(
+            PreprocessedOutflowChange {
+                edge,
+                change_time: arrival,
+            },
+            Reverse(arrival),
+        );
 
         if cur_queue == T::ZERO {
             let queue_slope = T::ZERO;
@@ -260,8 +273,13 @@ impl<T: Num> DynamicFlow<T> {
 
         self.outflow[edge].extend(arrival, outflow_map, acc_out);
 
-        self.outflow_changes
-            .push(OutflowChange(edge, arrival), Reverse(arrival));
+        self.outflow_changes.push(
+            PreprocessedOutflowChange {
+                edge,
+                change_time: arrival,
+            },
+            Reverse(arrival),
+        );
         let queue_slope = max(acc_in - capacity, T::ZERO);
         self.queues[edge].extend(&self.built_until, queue_slope);
         self.depletions.remove(edge);
@@ -287,8 +305,13 @@ impl<T: Num> DynamicFlow<T> {
 
         self.outflow[edge].extend(arrival, outflow_map.clone(), capacity);
 
-        self.outflow_changes
-            .push(OutflowChange(edge, arrival), Reverse(arrival));
+        self.outflow_changes.push(
+            PreprocessedOutflowChange {
+                edge,
+                change_time: arrival,
+            },
+            Reverse(arrival),
+        );
 
         let queue_slope = acc_in - capacity;
         self.queues[edge].extend(&self.built_until, queue_slope);
@@ -304,7 +327,7 @@ impl<T: Num> DynamicFlow<T> {
             Some(ChangeEvent {
                 time: planned_change_time,
                 value: ChangeEventValue {
-                    outflow_by_comm: outflow_map,
+                    new_outflow_map: outflow_map,
                     values_sum: acc_in,
                 },
             }),
@@ -329,14 +352,17 @@ impl<T: Num> DynamicFlow<T> {
             queue_e_last.1 = T::ZERO;
 
             if let Some(change_event) = change_event {
-                self.outflow_changes.push(
-                    OutflowChange(edge, change_event.time),
-                    Reverse(change_event.time),
-                );
                 self.outflow[edge].extend(
                     change_event.time,
-                    change_event.value.outflow_by_comm,
+                    change_event.value.new_outflow_map,
                     change_event.value.values_sum,
+                );
+                self.outflow_changes.push(
+                    PreprocessedOutflowChange {
+                        edge,
+                        change_time: change_event.time,
+                    },
+                    Reverse(change_event.time),
                 );
             }
         }
