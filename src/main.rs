@@ -1,6 +1,7 @@
 mod depletion_queue;
 mod dynamic_flow;
 mod float;
+mod network_loader;
 mod num;
 mod option_ext;
 mod piecewise_constant;
