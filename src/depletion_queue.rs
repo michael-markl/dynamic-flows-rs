@@ -17,6 +17,7 @@ pub struct ChangeEventValue<T: Num> {
     pub values_sum: T,
 }
 
+#[derive(Debug)]
 pub struct DepletionQueue<T: Num> {
     /// Contains a priority queue of all edges whose queues will depete in the future -- sorted by the time of depletion.
     depletions: PriorityQueue<usize, Reverse<T>>,

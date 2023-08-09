@@ -16,14 +16,14 @@ use crate::{
     points,
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct FlowRatesCollectionItem<T: Num> {
     time: T,
     values: HashMap<usize, T>,
 }
 
-#[derive(Clone)]
-struct FlowRatesCollection<T: Num> {
+#[derive(Clone, Debug)]
+pub struct FlowRatesCollection<T: Num> {
     function_by_comm: HashMap<usize, PiecewiseConstant<T>>,
     accumulative: PiecewiseLinear<T>,
     queue: VecDeque<FlowRatesCollectionItem<T>>,
@@ -42,7 +42,7 @@ impl<T: Num> FlowRatesCollection<T> {
         }
     }
 
-    fn get_values_at_time(&mut self, time: T) -> Option<&HashMap<usize, T>> {
+    pub fn get_values_at_time(&mut self, time: T) -> Option<&HashMap<usize, T>> {
         match self.queue.front() {
             None => None,
             Some(item) => {
@@ -101,13 +101,14 @@ impl<T: Num> FlowRatesCollection<T> {
 /// The outflow rate function of edge has already been extended by this change.
 /// Hence, we only keep the time at which the change happens, in order to keep track
 /// of edges that change in the future.
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Hash, PartialEq, Eq, Debug)]
 struct PreprocessedOutflowChange<T: Num> {
     edge: usize,
     change_time: T,
 }
 
-struct DynamicFlow<T: Num> {
+#[derive(Debug)]
+pub struct DynamicFlow<T: Num> {
     built_until: T,
 
     // inflow[e][i] is the function fᵢₑ⁺
@@ -123,7 +124,7 @@ struct DynamicFlow<T: Num> {
 }
 
 impl<T: Num> DynamicFlow<T> {
-    fn new(num_edges: usize) -> Self {
+    pub fn new(num_edges: usize) -> Self {
         DynamicFlow {
             built_until: T::ZERO,
             inflow: vec![FlowRatesCollection::new(); num_edges],
@@ -142,11 +143,31 @@ impl<T: Num> DynamicFlow<T> {
         }
     }
 
+    pub fn built_until(&self) -> T {
+        self.built_until
+    }
+
+    pub fn inflow(&self) -> &Vec<FlowRatesCollection<T>> {
+        &self.inflow
+    }
+
+    pub fn outflow(&self) -> &Vec<FlowRatesCollection<T>> {
+        &self.outflow
+    }
+
+    pub fn outflow_at_built_until(&mut self, edge: usize) -> Option<&HashMap<usize, T>> {
+        self.outflow[edge].get_values_at_time(self.built_until)
+    }
+
+    pub fn queues(&self) -> &Vec<PiecewiseLinear<T>> {
+        &self.queues
+    }
+
     /// Extends the flow with constant inflows new_inflow until some edge outflow changes.
     /// Edge inflows not in new_inflow are extended with their previous values.
     /// You can also specify a maximum extension length using max_extension_length.
     /// :returns set of edges where the outflow has changed at the new time `self.built_until`
-    fn extend(
+    pub fn extend(
         &mut self,
         new_inflow: HashMap<usize, HashMap<usize, T>>,
         max_extension_time: Option<T>,
@@ -171,7 +192,7 @@ impl<T: Num> DynamicFlow<T> {
             let inv_capacity_e = inv_capacity[edge];
             let travel_time_e = travel_time[edge];
             if acc_in == T::ZERO {
-                self._extend_case_i(edge, cur_queue, inv_capacity_e, travel_time_e);
+                self._extend_case_i(edge, cur_queue, capacity_e, inv_capacity_e, travel_time_e);
             } else if cur_queue == T::ZERO || acc_in >= capacity_e - T::TOL {
                 self._extend_case_ii(
                     edge,
@@ -227,7 +248,14 @@ impl<T: Num> DynamicFlow<T> {
         changed_edges
     }
 
-    fn _extend_case_i(&mut self, edge: usize, cur_queue: T, inv_capacity: T, travel_time: T) {
+    fn _extend_case_i(
+        &mut self,
+        edge: usize,
+        cur_queue: T,
+        capacity: T,
+        inv_capacity: T,
+        travel_time: T,
+    ) {
         let queue_fn = &mut self.queues[edge];
         let arrival = self.built_until + cur_queue * inv_capacity + travel_time;
         self.outflow[edge].extend(arrival, HashMap::new(), T::ZERO);
@@ -245,9 +273,16 @@ impl<T: Num> DynamicFlow<T> {
             queue_fn.extend(&self.built_until, queue_slope);
             self.depletions.remove(edge);
         } else {
+            let queue_slope = -capacity;
+            queue_fn.extend(&self.built_until, queue_slope);
             let depl_time = self.built_until + cur_queue * inv_capacity;
             let mille: T = iter::repeat(T::ONE).take(1000).sum();
-            debug_assert!(queue_fn.eval(depl_time) <= mille * T::TOL);
+            debug_assert!(
+                queue_fn.eval(depl_time) <= mille * T::TOL,
+                "depl_time: {}, queue_fn.eval(depl_time): {}",
+                depl_time,
+                queue_fn.eval(depl_time)
+            );
             self.depletions.set(edge, depl_time, None)
         }
     }
