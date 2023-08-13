@@ -7,32 +7,32 @@ use std::ops::{Add, Neg, Sub};
 use crate::num::Num;
 use crate::point::Point;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PiecewiseLinear<T: Num> {
-    pub domain: (T, T),
+    domain: [T; 2],
     first_slope: T,
     last_slope: T,
-    pub points: Vec<Point<T>>, // TODO: Maybe use a NonEmptyVec here
+    points: Vec<Point<T>>, // TODO: Maybe use a NonEmptyVec here
 }
 
 impl<T: Num> PiecewiseLinear<T> {
     pub fn new(
-        domain: (impl Into<T>, impl Into<T>),
+        domain: [impl Into<T>; 2],
         first_slope: impl Into<T>,
         last_slope: impl Into<T>,
         points: Vec<Point<T>>,
     ) -> Self {
-        let domain: (T, T) = (domain.0.into(), domain.1.into());
+        let domain: [T; 2] = domain.map(|x| x.into());
         let first_slope: T = first_slope.into();
         let last_slope: T = last_slope.into();
-        debug_assert!(domain.0 <= domain.1, "The domain is not well defined.");
+        debug_assert!(domain[0] <= domain[1], "The domain is not well defined.");
         debug_assert!(!points.is_empty(), "There must be at least one point.");
         debug_assert!(
-            points[0].0 >= domain.0,
+            points[0].0 >= domain[0],
             "The first point is not in the domain."
         );
         debug_assert!(
-            points[points.len() - 1].0 <= domain.1,
+            points[points.len() - 1].0 <= domain[1],
             "The last point is not in the domain."
         );
         debug_assert!(
@@ -46,6 +46,26 @@ impl<T: Num> PiecewiseLinear<T> {
             last_slope,
             points,
         }
+    }
+
+    pub fn domain(&self) -> [T; 2] {
+        self.domain
+    }
+
+    pub fn first_slope(&self) -> T {
+        self.first_slope
+    }
+
+    pub fn last_slope(&self) -> T {
+        self.last_slope
+    }
+
+    pub fn points(&self) -> &[Point<T>] {
+        &self.points
+    }
+
+    pub fn points_mut(&mut self) -> &mut [Point<T>] {
+        &mut self.points
     }
 
     pub fn get_rnk(&self, at: &T) -> Result<usize, usize> {
@@ -76,8 +96,8 @@ impl<T: Num> PiecewiseLinear<T> {
         }
     }
 
-    /// Returns the gradient between `points[i-1].0` (or `domain.0` if `i == 0`) and `times[i]`
-    /// (or `domain.1` if `i == len(times)`)
+    /// Returns the gradient between `points[i-1].0` (or `domain[0]` if `i == 0`) and `times[i]`
+    /// (or `domain[1]` if `i == len(times)`)
     pub fn gradient(&self, i: usize) -> T {
         // TODO: The following code has not been tested!
 
@@ -106,7 +126,7 @@ impl<T: Num> PiecewiseLinear<T> {
         debug_assert!(
             {
                 let f_img = f.image();
-                g.domain.0 <= f_img.0 + T::TOL && g.domain.1 >= f_img.1 - T::TOL
+                g.domain[0] <= f_img.0 + T::TOL && g.domain[1] >= f_img.1 - T::TOL
             },
             "The domains do not match for composition."
         );
@@ -122,7 +142,7 @@ impl<T: Num> PiecewiseLinear<T> {
 
         let mut i_g = max(1, g_rnk); // Start of interval
 
-        debug_assert!(i_g == g.points.len() - 1 || f.domain.0 <= g.points[i_g + 1].0);
+        debug_assert!(i_g == g.points.len() - 1 || f.domain[0] <= g.points[i_g + 1].0);
 
         for i_f in 0..f.points.len() {
             // Interval (f.points[i_f - 1], f.points[i_f])
@@ -178,7 +198,7 @@ impl<T: Num> PiecewiseLinear<T> {
             "Only implemented for monotone functions."
         );
         // TODO: The performance could be improved by determining the rank.
-        (self.eval(self.domain.0), self.eval(self.domain.1))
+        (self.eval(self.domain[0]), self.eval(self.domain[1]))
     }
 
     fn inverse(&self, _p0: T, _p1: usize) -> T {
@@ -206,13 +226,13 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
     rhs: &PiecewiseLinear<T>,
     op: F,
 ) -> PiecewiseLinear<T> {
-    let new_domain = (
-        max(lhs.domain.0, rhs.domain.0),
-        min(lhs.domain.1, rhs.domain.1),
-    );
+    let new_domain = [
+        max(lhs.domain[0], rhs.domain[0]),
+        min(lhs.domain[1], rhs.domain[1]),
+    ];
 
-    let l_domain_changed = new_domain.0 != lhs.domain.0 || new_domain.0 != rhs.domain.0;
-    let r_domain_changed = new_domain.1 != lhs.domain.1 || new_domain.1 != rhs.domain.1;
+    let l_domain_changed = new_domain[0] != lhs.domain[0] || new_domain[0] != rhs.domain[0];
+    let r_domain_changed = new_domain[1] != lhs.domain[1] || new_domain[1] != rhs.domain[1];
 
     let mut lhs_rng = (0, lhs.points.len());
     let mut rhs_rng = (0, rhs.points.len());
@@ -220,7 +240,7 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
     let first_point: Option<Point<T>> = if !l_domain_changed {
         None
     } else {
-        let at = new_domain.0;
+        let at = new_domain[0];
         let lhs_rnk = lhs.get_rnk(&at);
         let rhs_rnk = rhs.get_rnk(&at);
 
@@ -236,7 +256,7 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
             None
         } else {
             Some(Point(
-                new_domain.0,
+                new_domain[0],
                 op(
                     lhs.eval_with_rank(lhs_rnk, at),
                     rhs.eval_with_rank(rhs_rnk, at),
@@ -248,7 +268,7 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
     let last_point: Option<Point<T>> = if !r_domain_changed {
         None
     } else {
-        let at = new_domain.1;
+        let at = new_domain[1];
         let lhs_rnk = lhs.get_rnk(&at);
         let rhs_rnk = rhs.get_rnk(&at);
 
@@ -264,7 +284,7 @@ fn sum_op<T: Num, F: Fn(T, T) -> T>(
             None
         } else {
             Some(Point(
-                new_domain.1,
+                new_domain[1],
                 op(
                     lhs.eval_with_rank(lhs_rnk, at),
                     rhs.eval_with_rank(rhs_rnk, at),
@@ -373,7 +393,7 @@ impl<T: Num> Neg for &PiecewiseLinear<T> {
 impl<T: Num> Display for PiecewiseLinear<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "PiecewiseLinear {{ ")?;
-        write!(f, "domain: ({:},{:}), ", self.domain.0, self.domain.1)?;
+        write!(f, "domain: ({:},{:}), ", self.domain[0], self.domain[1])?;
         write!(f, "first_slope: {:}, ", self.first_slope)?;
         write!(f, "last_slope: {:}, ", self.last_slope)?;
         write!(f, "points: [ ")?;
@@ -392,9 +412,9 @@ mod tests {
     #[test]
     fn it_adds_two_piecewise_linear_functions() {
         let f: PiecewiseLinear<F64> =
-            PiecewiseLinear::new((0.0, 1.0), 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
+            PiecewiseLinear::new([0.0, 1.0], 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
         let g: PiecewiseLinear<F64> =
-            PiecewiseLinear::new((0.0, 1.0), 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
+            PiecewiseLinear::new([0.0, 1.0], 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
         let h = &f + &g;
         assert_eq!(h.eval(0.0), 0.0);
         assert_eq!(h.eval(0.5), 1.0);
@@ -405,7 +425,7 @@ mod tests {
     #[test]
     fn it_should_extend_correctly() {
         let mut f: PiecewiseLinear<F64> =
-            PiecewiseLinear::new((0.0, 1.0), 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
+            PiecewiseLinear::new([0.0, 1.0], 1.0, 1.0, points![(0.0, 0.0), (1.0, 1.0)]);
 
         f.extend(&2.0.into(), 2.0.into());
         assert_eq!(f.eval(2.0), 2.0);

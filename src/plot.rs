@@ -19,26 +19,26 @@ pub fn plot<T: Num, P: AsRef<Path> + ?Sized>(pwl: PiecewiseLinear<T>, path: &P) 
     let ((mut min_x, mut max_x), (mut min_y, mut max_y)) = {
         let mut min_y: T = T::INFINITY;
         let mut max_y: T = -T::INFINITY;
-        for p in pwl.points.iter() {
+        for p in pwl.points().iter() {
             min_y = min(min_y, p.1);
             max_y = max(max_y, p.1);
         }
-        let min_x = pwl.points[0].0;
-        let max_x = pwl.points.last().unwrap().0;
+        let min_x = pwl.points()[0].0;
+        let max_x = pwl.points().last().unwrap().0;
         ((min_x, max_x), (min_y, max_y))
     };
-    if min_x > pwl.domain.0 {
-        min_x = if pwl.domain.0 > -T::INFINITY {
-            pwl.domain.0
+    if min_x > pwl.domain()[0] {
+        min_x = if pwl.domain()[0] > -T::INFINITY {
+            pwl.domain()[0]
         } else {
             min_x - T::ONE
         };
         min_y = min(min_y, pwl.eval(min_x));
         max_y = max(max_y, pwl.eval(min_x));
     }
-    if max_x < pwl.domain.1 {
-        max_x = if pwl.domain.1 < T::INFINITY {
-            pwl.domain.1
+    if max_x < pwl.domain()[1] {
+        max_x = if pwl.domain()[1] < T::INFINITY {
+            pwl.domain()[1]
         } else {
             max_x + T::ONE
         };
@@ -64,7 +64,7 @@ pub fn plot<T: Num, P: AsRef<Path> + ?Sized>(pwl: PiecewiseLinear<T>, path: &P) 
     chart
         .draw_series(LineSeries::new(
             once((min_x.to_f64(), pwl.eval(min_x).to_f64()))
-                .chain(pwl.points.iter().map(|p| (p.0.to_f64(), p.1.to_f64())))
+                .chain(pwl.points().iter().map(|p| (p.0.to_f64(), p.1.to_f64())))
                 .chain(once((max_x.to_f64(), pwl.eval(max_x).to_f64()))),
             ShapeStyle {
                 color: RED.into(),
