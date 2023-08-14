@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod depletion_queue;
 mod dynamic_flow;
 mod float;
@@ -14,14 +16,14 @@ use piecewise_linear::PiecewiseLinear;
 
 fn main() {
     let f1: PiecewiseLinear<F64> = PiecewiseLinear::new(
-        (-F64::INFINITY, F64::INFINITY),
+        [-F64::INFINITY, F64::INFINITY],
         1.0,
         1.0,
         points![(1.0, 1.0)],
     );
 
     let f2: PiecewiseLinear<F64> = PiecewiseLinear::new(
-        (-F64::INFINITY, F64::INFINITY),
+        [-F64::INFINITY, F64::INFINITY],
         3.0,
         1.0,
         points![(-2.0, 1.0)],

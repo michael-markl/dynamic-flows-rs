@@ -3,23 +3,23 @@ use num_traits::abs;
 use crate::num::Num;
 use crate::point::Point;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PiecewiseConstant<T: Num> {
-    pub domain: (T, T),
-    pub points: Vec<Point<T>>, // TODO: Maybe use a NonEmptyVec here
+    domain: [T; 2],
+    points: Vec<Point<T>>, // TODO: Maybe use a NonEmptyVec here
 }
 
 impl<T: Num> PiecewiseConstant<T> {
-    pub fn new(domain: (impl Into<T>, impl Into<T>), points: Vec<Point<T>>) -> Self {
-        let domain = (domain.0.into(), domain.1.into());
-        debug_assert!(domain.0 <= domain.1, "The domain is not well defined.");
+    pub fn new(domain: [impl Into<T>; 2], points: Vec<Point<T>>) -> Self {
+        let domain = domain.map(|x| x.into());
+        debug_assert!(domain[0] <= domain[1], "The domain is not well defined.");
         debug_assert!(!points.is_empty(), "There must be at least one point.");
         debug_assert!(
-            points[0].0 >= domain.0,
+            points[0].0 >= domain[0],
             "The first point is not in the domain."
         );
         debug_assert!(
-            points[points.len() - 1].0 <= domain.1,
+            points[points.len() - 1].0 <= domain[1],
             "The last point is not in the domain."
         );
         debug_assert!(
@@ -28,6 +28,14 @@ impl<T: Num> PiecewiseConstant<T> {
         );
 
         Self { domain, points }
+    }
+
+    pub fn domain(&self) -> [T; 2] {
+        self.domain
+    }
+
+    pub fn points(&self) -> &[Point<T>] {
+        &self.points
     }
 
     pub fn get_rnk(&self, at: T) -> Result<usize, usize> {
@@ -72,7 +80,7 @@ mod tests {
     #[test]
     pub fn it_evals_correctly() {
         let f: PiecewiseConstant<F64> = PiecewiseConstant::new(
-            (-F64::INFINITY, F64::INFINITY),
+            [-F64::INFINITY, F64::INFINITY],
             points![(1.0, 1.0), (2.0, 2.0)],
         );
         assert_eq!(f.eval(-1.0), 1.0);
@@ -85,7 +93,7 @@ mod tests {
     #[test]
     pub fn it_extends_correctly() {
         let mut f: PiecewiseConstant<F64> =
-            PiecewiseConstant::new((-F64::INFINITY, F64::INFINITY), points![(0.0, 0.0)]);
+            PiecewiseConstant::new([-F64::INFINITY, F64::INFINITY], points![(0.0, 0.0)]);
         f.extend(&1.0.into(), &2.0.into());
 
         assert_eq!(f.eval(-1.0), 0.0);

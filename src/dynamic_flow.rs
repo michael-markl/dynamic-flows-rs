@@ -33,7 +33,7 @@ impl<T: Num> FlowRatesCollection<T> {
         FlowRatesCollection {
             function_by_comm: HashMap::new(),
             accumulative: PiecewiseLinear::new(
-                (-T::INFINITY, T::INFINITY),
+                [-T::INFINITY, T::INFINITY],
                 T::ZERO,
                 T::ZERO,
                 points!((T::ZERO, T::ZERO)),
@@ -58,12 +58,16 @@ impl<T: Num> FlowRatesCollection<T> {
         }
     }
 
+    pub fn function_by_comm(&self) -> &HashMap<usize, PiecewiseConstant<T>> {
+        &self.function_by_comm
+    }
+
     fn extend(&mut self, from_time: T, values_map: HashMap<usize, T>, values_sum: T) {
         match self.queue.back() {
             None => {
                 for (i, value) in values_map.iter() {
                     let mut new_fn =
-                        PiecewiseConstant::new((T::ZERO, T::INFINITY), points![(T::ZERO, T::ZERO)]);
+                        PiecewiseConstant::new([T::ZERO, T::INFINITY], points![(T::ZERO, T::ZERO)]);
                     new_fn.extend(&from_time, value);
                     let res = self.function_by_comm.insert(*i, new_fn);
                     assert!(res.is_none());
@@ -71,19 +75,21 @@ impl<T: Num> FlowRatesCollection<T> {
             }
             Some(back) => {
                 debug_assert!(back.time <= from_time + T::TOL);
-                for (i, value) in values_map.iter() {
-                    match self.function_by_comm.get_mut(i) {
-                        None => {
-                            let mut new_fn = PiecewiseConstant::new(
-                                (T::ZERO, T::INFINITY),
-                                points![(T::ZERO, T::ZERO)],
-                            );
-                            new_fn.extend(&from_time, value);
-                            self.function_by_comm.insert(*i, new_fn);
-                        }
-                        Some(function) => {
-                            function.extend(&from_time, value);
-                        }
+                for (&i, value) in values_map.iter() {
+                    self.function_by_comm
+                        .entry(i)
+                        .or_insert(PiecewiseConstant::new(
+                            [T::ZERO, T::INFINITY],
+                            points![(T::ZERO, T::ZERO)],
+                        ))
+                        .extend(&from_time, value);
+                }
+                for &i in back.values.keys() {
+                    if !values_map.contains_key(&i) {
+                        self.function_by_comm
+                            .get_mut(&i)
+                            .unwrap()
+                            .extend(&from_time, &T::ZERO);
                     }
                 }
             }
@@ -131,7 +137,7 @@ impl<T: Num> DynamicFlow<T> {
             outflow: vec![FlowRatesCollection::new(); num_edges],
             queues: vec![
                 PiecewiseLinear::new(
-                    (-T::INFINITY, T::INFINITY),
+                    [-T::INFINITY, T::INFINITY],
                     T::ZERO,
                     T::ZERO,
                     points!((T::ZERO, T::ZERO)),
@@ -381,7 +387,7 @@ impl<T: Num> DynamicFlow<T> {
             let (edge, depl_time, change_event) = self.depletions.pop_by_depletion().unwrap();
             let queue_e = &mut self.queues[edge];
             queue_e.extend(&depl_time, T::ZERO);
-            let queue_e_last = queue_e.points.last_mut().unwrap();
+            let queue_e_last = queue_e.points_mut().last_mut().unwrap();
             let mille: T = iter::repeat(T::ONE).take(1000).sum();
             debug_assert!(abs(queue_e_last.1) < mille * T::TOL);
             queue_e_last.1 = T::ZERO;
@@ -408,15 +414,18 @@ impl<T: Num> DynamicFlow<T> {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{float::F64, num::Num};
+    use crate::{
+        float::F64, num::Num, piecewise_constant::PiecewiseConstant,
+        piecewise_linear::PiecewiseLinear, points,
+    };
 
     use super::DynamicFlow;
 
     #[test]
-    fn test_dynamic_flow() {
+    fn test_dynamic_flow_constant_inflow_single_edge() {
         let mut dynamic_flow: DynamicFlow<F64> = DynamicFlow::new(1);
         dynamic_flow.extend(
-            HashMap::from([(0usize, HashMap::from([(0usize, 1.0.into())]))]),
+            HashMap::from([(0, HashMap::from([(0, 1.0.into())]))]),
             None,
             &[1.0.into()],
             &[1.0.into()],
@@ -424,12 +433,65 @@ mod tests {
         );
         assert_eq!(dynamic_flow.built_until, 1.0);
         dynamic_flow.extend(
-            HashMap::from([(0usize, HashMap::from([(0usize, 1.0.into())]))]),
+            HashMap::from([(0, HashMap::from([(0, 1.0.into())]))]),
             None,
             &[1.0.into()],
             &[1.0.into()],
             &[1.0.into()],
         );
         assert_eq!(dynamic_flow.built_until, F64::INFINITY);
+        assert_eq!(
+            dynamic_flow.queues[0],
+            PiecewiseLinear::new(
+                [-F64::INFINITY, F64::INFINITY],
+                0.0,
+                0.0,
+                points![(0.0, 0.0)]
+            )
+        );
+    }
+
+    #[test]
+    fn test_dynamic_flow_vanishing_inflow_single_edge() {
+        let mut dynamic_flow: DynamicFlow<F64> = DynamicFlow::new(1);
+        dynamic_flow.extend(
+            HashMap::from([(0, HashMap::from([(0, 1.0.into())]))]),
+            None,
+            &[1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
+        );
+        assert_eq!(dynamic_flow.built_until, 1.0);
+        dynamic_flow.extend(
+            HashMap::from([(0, HashMap::from([(0, 1.0.into())]))]),
+            Some(2.0.into()),
+            &[1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
+        );
+        assert_eq!(dynamic_flow.built_until, 2.0);
+        dynamic_flow.extend(
+            HashMap::from([(0, HashMap::from([(0, 0.0.into())]))]),
+            None,
+            &[1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
+        );
+        assert_eq!(dynamic_flow.built_until, 3.0);
+        dynamic_flow.extend(
+            HashMap::from([(0, HashMap::from([(0, 0.0.into())]))]),
+            None,
+            &[1.0.into()],
+            &[1.0.into()],
+            &[1.0.into()],
+        );
+        assert_eq!(dynamic_flow.built_until, F64::INFINITY);
+        assert_eq!(
+            dynamic_flow.outflow[0].function_by_comm()[&0],
+            PiecewiseConstant::new(
+                [-F64::ZERO, F64::INFINITY],
+                points![(0.0, 0.0), (1.0, 1.0), (3.0, 0.0)]
+            )
+        );
     }
 }
