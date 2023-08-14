@@ -1,14 +1,12 @@
 use crate::{
     dynamic_flow::{DynamicFlow, FlowRatesCollection},
-    float::F64,
-    network_loader::{NetworkLoader, PathInflow},
     num::Num,
     piecewise_constant::PiecewiseConstant,
     piecewise_linear::PiecewiseLinear,
-    points,
 };
 use serde::{
-    ser::{SerializeMap, SerializeStruct}, Serialize, Serializer,
+    ser::{SerializeMap, SerializeStruct},
+    Serialize, Serializer,
 };
 
 struct JsonNumber(f64);
@@ -132,34 +130,43 @@ impl<'a, T: Num> Serialize for VisualizationFlowRates<'a, T> {
     }
 }
 
-pub fn export_visualization_json() {
-    let network_loader: NetworkLoader<F64> = NetworkLoader::new(&[
-        PathInflow {
-            path: &[0, 1, 2],
-            inflow: &PiecewiseConstant::new(
-                [-F64::INFINITY, F64::INFINITY],
-                points![(0.0, 1.0), (3.0, 0.0)],
-            ),
-        },
-        PathInflow {
-            path: &[2, 0, 1],
-            inflow: &PiecewiseConstant::new(
-                [-F64::INFINITY, F64::INFINITY],
-                points![(0.0, 2.0), (3.0, 0.0)],
-            ),
-        },
-    ]);
-    println!("{:?}", network_loader);
-    let flow = network_loader.build_flow(
-        3,
-        &[1.0.into(), 2.0.into(), 3.0.into()],
-        &[(1.0 / 1.0).into(), (1.0 / 2.0).into(), (1.0 / 3.0).into()],
-        &[1.0.into(), 2.0.into(), 3.0.into()],
-    );
-    let result: Result<String, serde_json::Error> =
-        serde_json::to_string_pretty(&VisualizationDynamicFlow(&flow));
-    match result {
-        Err(e) => println!("Error: {}", e),
-        Ok(s) => println!("{}", s),
+#[cfg(test)]
+mod tests {
+    use crate::{
+        float::F64,
+        network_loader::{NetworkLoader, PathInflow},
+        num::Num,
+        piecewise_constant::PiecewiseConstant,
+        points,
+    };
+
+    use super::VisualizationDynamicFlow;
+
+    #[test]
+    pub fn test_serialization_to_json() {
+        let network_loader: NetworkLoader<F64> = NetworkLoader::new(&[
+            PathInflow {
+                path: &[0, 1, 2],
+                inflow: &PiecewiseConstant::new(
+                    [-F64::INFINITY, F64::INFINITY],
+                    points![(0.0, 1.0), (3.0, 0.0)],
+                ),
+            },
+            PathInflow {
+                path: &[2, 0, 1],
+                inflow: &PiecewiseConstant::new(
+                    [-F64::INFINITY, F64::INFINITY],
+                    points![(0.0, 2.0), (3.0, 0.0)],
+                ),
+            },
+        ]);
+        let flow = network_loader.build_flow(
+            3,
+            &[1.0.into(), 2.0.into(), 3.0.into()],
+            &[(1.0 / 1.0).into(), (1.0 / 2.0).into(), (1.0 / 3.0).into()],
+            &[1.0.into(), 2.0.into(), 3.0.into()],
+        );
+        let result = serde_json::to_string_pretty(&VisualizationDynamicFlow(&flow)).unwrap();
+        println!("{}", result)
     }
 }
