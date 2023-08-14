@@ -71,7 +71,7 @@ impl<'a, T: Num> Serialize for VisualizationPiecewiseConstant<'a, T> {
     where
         S: serde::Serializer,
     {
-        let mut res = serializer.serialize_struct("PiecewiseConstant", 5)?;
+        let mut res = serializer.serialize_struct("PiecewiseConstant", 3)?;
         res.serialize_field(
             "times",
             &SerializableIterator(self.0.points().iter().map(|p| JsonNumber(p.0.to_f64()))),
@@ -92,7 +92,7 @@ impl<'a, T: Num> Serialize for VisualizationDynamicFlow<'a, T> {
     where
         S: serde::Serializer,
     {
-        let mut res = serializer.serialize_struct("DynamicFlow", 2)?;
+        let mut res = serializer.serialize_struct("DynamicFlow", 3)?;
         res.serialize_field(
             "queues",
             &SerializableIterator(
