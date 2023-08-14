@@ -2,6 +2,7 @@
 
 mod depletion_queue;
 mod dynamic_flow;
+mod export_visualization;
 mod float;
 mod network_loader;
 mod num;

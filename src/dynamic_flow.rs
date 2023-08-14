@@ -1,5 +1,4 @@
 use std::{
-    borrow::BorrowMut,
     cmp::{max, min, Reverse},
     collections::{HashMap, HashSet, VecDeque},
     hash::Hash,
@@ -415,7 +414,10 @@ impl<T: Num> DynamicFlow<T> {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::{float::F64, num::Num, piecewise_linear::PiecewiseLinear, points, piecewise_constant::PiecewiseConstant};
+    use crate::{
+        float::F64, num::Num, piecewise_constant::PiecewiseConstant,
+        piecewise_linear::PiecewiseLinear, points,
+    };
 
     use super::DynamicFlow;
 

@@ -8,8 +8,7 @@ use crate::{
     points,
 };
 use serde::{
-    ser::{SerializeMap, SerializeStruct},
-    Deserialize, Serialize, Serializer,
+    ser::{SerializeMap, SerializeStruct}, Serialize, Serializer,
 };
 
 struct JsonNumber(f64);
